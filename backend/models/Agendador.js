@@ -12,11 +12,25 @@ const Agendador = sequelize.define("Agendador", {
         allowNull: false
     },
     laboratorio: {
-        type: DataTypes.INTEGER(11, 10),
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        min: 1,
+        max: 10,
+    },
+    data: {
+        type: DataTypes.DATEONLY,
         allowNull: false
     },
-    reserva: {
-        type: DataTypes.BOOLEAN,
+    horarioInicial: {
+        type: DataTypes.TIME,
+        allowNull: false
+    },
+    horarioFinal: {
+        type: DataTypes.TIME,
+        allowNull: false
+    },
+    motivo: {
+        type: DataTypes.STRING,
         allowNull: false
     }
 })
