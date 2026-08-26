@@ -21,11 +21,11 @@ module.exports = {
         type: Sequelize.DATEONLY,
         allowNull: false
       },
-      horarioInicio: {
+      horarioInicial: {
         type: Sequelize.TIME,
         allowNull: false
       },
-      horarioFim: {
+      horarioFinal: {
         type: Sequelize.TIME,
         allowNull: false
       },
