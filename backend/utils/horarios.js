@@ -5,7 +5,7 @@ const slotsHorarios = [
     { inicio: "09:00", fim: "09:45", turno: "matutino" },
     { inicio: "09:45", fim: "10:30", turno: "matutino" },
     { inicio: "10:30", fim: "11:15", turno: "matutino" },
-    { inicio: "11:15", fim: "12:00", turno: "matutino" }, // Nota: até 12:15 dá para incluir slot 11:30 - 12:15 ou similar
+    { inicio: "11:15", fim: "12:00", turno: "matutino" },
 
     // Turno Vespertino (13:30 - 18:15)
     { inicio: "13:30", fim: "14:15", turno: "vespertino" },

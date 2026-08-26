@@ -1,17 +1,18 @@
 const Agendador = require("../models/Agendador")
 const slotsHorarios = require("../utils/horarios")
 const { Op } = require("sequelize")
+const { AppError } = require("../middleware/errorHandler")
 
-exports.listarGrade = async (req, res) => {
+exports.listarGrade = async (req, res, next) => {
     try {
         const { data, laboratorio } = req.query
 
         if (!data || !laboratorio) {
-            return res.status(400).json({ erro: "Campos 'data' e 'laboratorio' são obrigatórios na query string." })
+            throw new AppError("Campos 'data' e 'laboratorio' são obrigatórios na query string.", 400)
         }
 
         if (laboratorio < 1 || laboratorio > 10) {
-            return res.status(400).json({ erro: "O laboratório deve ser um número entre 1 e 10." })
+            throw new AppError("O laboratório deve ser um número entre 1 e 10.", 400)
         }
 
         const reservas = await Agendador.findAll({
@@ -22,8 +23,8 @@ exports.listarGrade = async (req, res) => {
         });
 
         const grade = slotsHorarios.map(slot => {
-            const agendamento = reservas.find(r => 
-                r.horarioInicio.startsWith(slot.inicio) && r.horarioFim.startsWith(slot.fim)
+            const agendamento = reservas.find(r =>
+                r.horarioInicial.startsWith(slot.inicio) && r.horarioFinal.startsWith(slot.fim)
             );
 
             return {
@@ -43,32 +44,27 @@ exports.listarGrade = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ erro: "Erro ao consultar a grade de horários." });
+        next(error)
     }
 };
 
-// Cadastrar um novo agendamento
-exports.cadastrar = async (req, res) => {
+exports.cadastrar = async (req, res, next) => {
     try {
         const { nomeUsuario, laboratorio, data, horarioInicial, horarioFinal, motivo } = req.body
 
-        // 1. Validações básicas de entrada
         if (!nomeUsuario || !laboratorio || !data || !horarioInicial || !horarioFinal || !motivo) {
-            return res.status(400).json({ erro: "Preencha todos os campos obrigatórios." })
+            throw new AppError("Preencha todos os campos obrigatórios.", 400)
         }
 
         if (laboratorio < 1 || laboratorio > 10) {
-            return res.status(400).json({ erro: "Escolha um laboratório válido entre 1 e 10." })
+            throw new AppError("Escolha um laboratório válido entre 1 e 10.", 400)
         }
 
-        // 2. Checa se o horário informado é um slot de 45 min válido
         const slotValido = slotsHorarios.some(s => s.inicio === horarioInicial && s.fim === horarioFinal)
         if (!slotValido) {
-            return res.status(400).json({ erro: "O horário informado não coincide com os turnos permitidos de 45 minutos." })
+            throw new AppError("O horário informado não coincide com os turnos permitidos de 45 minutos.", 400)
         }
 
-        // 3. Checa sobreposição de horários
         const conflito = await Agendador.findOne({
             where: {
                 laboratorio: laboratorio,
@@ -81,12 +77,9 @@ exports.cadastrar = async (req, res) => {
         });
 
         if (conflito) {
-            return res.status(400).json({ 
-                erro: `O Laboratório ${laboratorio} já possui agendamento neste horário.` 
-            });
+            throw new AppError(`O Laboratório ${laboratorio} já possui agendamento neste horário.`, 400)
         }
 
-        // 4. Cria a reserva
         const novoAgendamento = await Agendador.create({
             nomeUsuario,
             laboratorio,
@@ -99,7 +92,99 @@ exports.cadastrar = async (req, res) => {
         res.status(201).json(novoAgendamento);
 
     } catch (error) {
-        console.error(error)
-        res.status(500).json({ erro: "Erro ao criar o agendamento." })
+        next(error)
+    }
+};
+
+exports.cancelar = async (req, res, next) => {
+    try {
+        const { id } = req.params
+
+        const agendamento = await Agendador.findByPk(id)
+        if (!agendamento) {
+            throw new AppError("Agendamento não encontrado.", 404)
+        }
+
+        await agendamento.destroy()
+
+        res.status(200).json({ mensagem: "Agendamento cancelado com sucesso." })
+
+    } catch (error) {
+        next(error)
+    }
+};
+
+exports.editar = async (req, res, next) => {
+    try {
+        const { id } = req.params
+        const { nomeUsuario, laboratorio, data, horarioInicial, horarioFinal, motivo } = req.body
+
+        const agendamento = await Agendador.findByPk(id)
+        if (!agendamento) {
+            throw new AppError("Agendamento não encontrado.", 404)
+        }
+
+        if (!nomeUsuario || !laboratorio || !data || !horarioInicial || !horarioFinal || !motivo) {
+            throw new AppError("Preencha todos os campos obrigatórios.", 400)
+        }
+
+        if (laboratorio < 1 || laboratorio > 10) {
+            throw new AppError("Escolha um laboratório válido entre 1 e 10.", 400)
+        }
+
+        const slotValido = slotsHorarios.some(s => s.inicio === horarioInicial && s.fim === horarioFinal)
+        if (!slotValido) {
+            throw new AppError("O horário informado não coincide com os turnos permitidos de 45 minutos.", 400)
+        }
+
+        const conflito = await Agendador.findOne({
+            where: {
+                laboratorio: laboratorio,
+                data: data,
+                id: { [Op.ne]: id },
+                [Op.and]: [
+                    { horarioInicial: { [Op.lt]: horarioFinal } },
+                    { horarioFinal: { [Op.gt]: horarioInicial } }
+                ]
+            }
+        });
+
+        if (conflito) {
+            throw new AppError(`O Laboratório ${laboratorio} já possui agendamento neste horário.`, 400)
+        }
+
+        await agendamento.update({
+            nomeUsuario,
+            laboratorio,
+            data,
+            horarioInicial,
+            horarioFinal,
+            motivo
+        });
+
+        res.status(200).json(agendamento)
+
+    } catch (error) {
+        next(error)
+    }
+};
+
+exports.listarPorUsuario = async (req, res, next) => {
+    try {
+        const { nomeUsuario } = req.query
+
+        if (!nomeUsuario) {
+            throw new AppError("O campo 'nomeUsuario' é obrigatório na query string.", 400)
+        }
+
+        const agendamentos = await Agendador.findAll({
+            where: { nomeUsuario },
+            order: [["data", "ASC"], ["horarioInicial", "ASC"]]
+        });
+
+        res.status(200).json(agendamentos)
+
+    } catch (error) {
+        next(error)
     }
 };

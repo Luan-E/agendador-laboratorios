@@ -12,8 +12,4 @@ const sequelize = new Sequelize(
     }
 );
 
-sequelize.authenticate()
-    .then(() => console.log("Banco conectado com sucesso"))
-    .catch(error => console.log(error))
-
 module.exports = sequelize
