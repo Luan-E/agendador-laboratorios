@@ -31,7 +31,6 @@ export function useAgendador() {
   }, [laboratorio, data]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     carregarGrade();
   }, [carregarGrade]);
 
